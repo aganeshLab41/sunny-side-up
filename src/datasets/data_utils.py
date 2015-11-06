@@ -4,7 +4,7 @@ import random
 from urllib2 import urlopen, HTTPError, URLError
 import numpy as np
 import logging
-from word_vector_embedder import WordVectorEmbedder
+#from word_vector_embedder import WordVectorEmbedder
 logging.basicConfig()
 logger=logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)

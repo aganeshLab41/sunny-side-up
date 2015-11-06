@@ -32,6 +32,18 @@ formerly known as "Text Understanding from Scratch" (http://arxiv.org/pdf/1502.0
 
 THEANO_FLAGS=mode=FAST_RUN,device=gpu1,floatX=float32 python tufs_cnn.py
 '''
+def write_to_json(obj, path_base, path_decorator):
+        """
+        Writes (or overwrites) a JSON file located via a regular 
+        combination of path base and path_decorator, dumping a JSON
+        representation of obj to that file. Utility function for various 
+        callback events.
+        """
+        # path decorator goes between filename and extension
+        path_part, ext = os.path.splitext(path_base)
+        full_path = "{}{}{}".format(path_part, path_decorator, ext)
+        with open(full_path, "w") as f:
+            json.dump(obj, f)
 
 def model_defn():
 
@@ -113,12 +125,20 @@ if __name__=="__main__":
         transformer_fun=lambda x: data_utils.to_one_hot(x),
         flatten=False, batch_size=batch_size)
 
+    train_times = []
+    save_path = 'test_save.json'
+
     #Begin runs of training and testing    
     for e in range(num_epochs):
         print('-'*10)
         print('Epoch', e)
         print('-'*10)
         print("Training...")
+
+        count = 0
+
+        train_times.append({})
+        train_times[e]['start'] = time.time()
 
         #Halve the learning rate every 3 epochs 
         if(e % 3 == 2):
@@ -128,11 +148,15 @@ if __name__=="__main__":
 
         for X_batch, Y_batch in am_train_batch:
 
+            if(count > 1):
+                break
             #Reshape input from a 3D Input to a 4D input for training    
             X_batch = X_batch[:,np.newaxis]
             
             loss,acc = model.train_on_batch(X_batch, Y_batch, accuracy=True)
             progbar.add(batch_size, values=[("train loss", loss),("train acc",acc)])
+
+            count = count + 1
         
         #Save the model every epoch into hd5 file    
         model.save_weights('tufs_keras_weights.hd5',overwrite=True) 
@@ -141,13 +165,20 @@ if __name__=="__main__":
 
         progbar = generic_utils.Progbar(amnte)
 
+        count = 0
         for X_batch, Y_batch in am_test_batch:
-            
+            if(count > 1):
+                break
             #Reshape input from a 3D Input to a 4D input for training
             X_batch = X_batch[:,np.newaxis]
 
             loss,acc = model.test_on_batch(X_batch, Y_batch, accuracy=True)
             progbar.add(batch_size, values=[("test loss", loss),("test acc",acc)])
-             
-        print("\n")
 
+            count = count + 1 
+        print("\n")
+        count = 0
+
+        #Epoch End Statistics 
+        train_times[e]['end'] = time.time()
+        write_to_json(train_times, save_path, "_traintimes")

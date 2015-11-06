@@ -20,3 +20,4 @@ build/
 **/docker.env
 **/mturk.properties
 *.hd5
+*.json
