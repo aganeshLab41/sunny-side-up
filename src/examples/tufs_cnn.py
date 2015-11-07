@@ -23,7 +23,7 @@ from keras.layers.embeddings import Embedding
 from keras.layers.convolutional import Convolution1D, MaxPooling1D, MaxPooling2D, Convolution2D
 from keras.layers.normalization import BatchNormalization
 from keras.utils import np_utils,generic_utils
-
+from sklearn.metrics import confusion_matrix
 
 '''
 Model below is based on paper by Xiang Zhang "Character-Level Convolutional
@@ -135,10 +135,10 @@ if __name__=="__main__":
         print('-'*10)
         print("Training...")
 
-        count = 0
+        stop_count = 0
 
         train_times.append({})
-        train_times[e]['start'] = time.time()
+        train_times[e]['start'+'_epoch_'+str(e)] = time.time()
 
         #Halve the learning rate every 3 epochs 
         if(e % 3 == 2):
@@ -146,9 +146,13 @@ if __name__=="__main__":
         
         progbar = generic_utils.Progbar(amntr)
 
-        for X_batch, Y_batch in am_train_batch:
+        trainAccVal = 0
+        trainCounter = 0
 
-            if(count > 1):
+        for X_batch, Y_batch in am_train_batch:
+            
+
+            if(stop_count > 1):
                 break
             #Reshape input from a 3D Input to a 4D input for training    
             X_batch = X_batch[:,np.newaxis]
@@ -156,8 +160,17 @@ if __name__=="__main__":
             loss,acc = model.train_on_batch(X_batch, Y_batch, accuracy=True)
             progbar.add(batch_size, values=[("train loss", loss),("train acc",acc)])
 
-            count = count + 1
-        
+            stop_count = stop_count + 1
+
+            trainCounter = trainCounter + 1
+            trainAccVal = trainAccVal + acc
+
+        print("\n")    
+        print("Train accuracy val", trainAccVal/trainCounter)
+
+        train_times[e]['end'+'_epoch_'+str(e)] = time.time()
+        write_to_json(train_times, save_path, "_traintimes")
+
         #Save the model every epoch into hd5 file    
         model.save_weights('tufs_keras_weights.hd5',overwrite=True) 
 
@@ -165,9 +178,18 @@ if __name__=="__main__":
 
         progbar = generic_utils.Progbar(amnte)
 
-        count = 0
+        stop_count = 0
+
+        testCounter = 0
+        testAccVal = 0
+
+        y_true = []
+        y_test = []
+
+        conf_matrix = np.zeros((2,2))
+
         for X_batch, Y_batch in am_test_batch:
-            if(count > 1):
+            if(stop_count > 1):
                 break
             #Reshape input from a 3D Input to a 4D input for training
             X_batch = X_batch[:,np.newaxis]
@@ -175,10 +197,42 @@ if __name__=="__main__":
             loss,acc = model.test_on_batch(X_batch, Y_batch, accuracy=True)
             progbar.add(batch_size, values=[("test loss", loss),("test acc",acc)])
 
-            count = count + 1 
-        print("\n")
-        count = 0
+            stop_count = stop_count + 1
 
-        #Epoch End Statistics 
-        train_times[e]['end'] = time.time()
-        write_to_json(train_times, save_path, "_traintimes")
+            testCounter = testCounter + 1
+            testAccVal = testAccVal + acc 
+
+            #Calculate confusion matrix
+            y_true = Y_batch
+            y_test = model.predict_on_batch(X_batch)
+            y_test = [int(round(y)) for y in y_test]     
+
+            #print("length of y_true", len(y_true))
+            #print("length of y_test", len(y_test))
+            #print("first y_true", y_true[0])
+            #print("first y_test", y_test[0])
+
+
+            conf_matrix = conf_matrix + confusion_matrix(y_true,y_test)
+            #print("conf_matrix shape",conf_matrix)
+
+        print("\n")
+        stop_count = 0
+
+        print("Test accuracy val", testAccVal/testCounter)
+        print("Conf matrix", conf_matrix)
+
+
+        #Epoch End Statistics after training  
+        
+
+
+
+
+
+
+
+
+
+
+
