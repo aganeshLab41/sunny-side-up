@@ -6,7 +6,7 @@ file_path = os.path.dirname(os.path.abspath(__file__))
 ssu_path = file_path.rsplit('/examples')[0]
 sys.path.insert(0, ssu_path)
 
-import simplejson as json
+import json
 import numpy as np
 import pprint
 import time
@@ -125,8 +125,13 @@ if __name__=="__main__":
         transformer_fun=lambda x: data_utils.to_one_hot(x),
         flatten=False, batch_size=batch_size)
 
+    #Statistics Initialization 
     train_times = []
-    save_path = 'test_save.json'
+    test_accuracies = []
+    test_confusions = []
+    costs = []
+
+    save_path = 'model_stats.json'
 
     #Begin runs of training and testing    
     for e in range(num_epochs):
@@ -135,8 +140,11 @@ if __name__=="__main__":
         print('-'*10)
         print("Training...")
 
+        #Temporary stopping condition variable 
         stop_count = 0
 
+        #Initialize variables for collecting minibatch cost stats and starting train timer
+        costs.append([])
         train_times.append({})
         train_times[e]['start'+'_epoch_'+str(e)] = time.time()
 
@@ -144,49 +152,54 @@ if __name__=="__main__":
         if(e % 3 == 2):
             sgd.lr.set_value(sgd.lr.get_value()/2)
         
+        #Progress bar initialized for training data
         progbar = generic_utils.Progbar(amntr)
 
-        trainAccVal = 0
-        trainCounter = 0
+        '''Training loop performing training process'''
 
         for X_batch, Y_batch in am_train_batch:
             
-
             if(stop_count > 1):
                 break
+
             #Reshape input from a 3D Input to a 4D input for training    
             X_batch = X_batch[:,np.newaxis]
             
             loss,acc = model.train_on_batch(X_batch, Y_batch, accuracy=True)
             progbar.add(batch_size, values=[("train loss", loss),("train acc",acc)])
 
+            #Record costs after each minibatch
+            costs[e].append(float(loss))
+            
+            #Temporary stopping condition variable
             stop_count = stop_count + 1
 
-            trainCounter = trainCounter + 1
-            trainAccVal = trainAccVal + acc
-
         print("\n")    
-        print("Train accuracy val", trainAccVal/trainCounter)
 
+        #Record how long training took per epoch
         train_times[e]['end'+'_epoch_'+str(e)] = time.time()
-        write_to_json(train_times, save_path, "_traintimes")
-
+        
         #Save the model every epoch into hd5 file    
         model.save_weights('tufs_keras_weights.hd5',overwrite=True) 
 
         print("\nTesting...")
 
+        #Progress bar initialized for testing data
         progbar = generic_utils.Progbar(amnte)
 
+        #Temporary stopping condition var
         stop_count = 0
 
+        #Initialize variables for collecting test related stats
         testCounter = 0
         testAccVal = 0
 
+        #Confusion matrix initializations
         y_true = []
         y_test = []
-
         conf_matrix = np.zeros((2,2))
+
+        '''Testing loop performing tests/predict based on model'''
 
         for X_batch, Y_batch in am_test_batch:
             if(stop_count > 1):
@@ -197,6 +210,7 @@ if __name__=="__main__":
             loss,acc = model.test_on_batch(X_batch, Y_batch, accuracy=True)
             progbar.add(batch_size, values=[("test loss", loss),("test acc",acc)])
 
+            #Temporary stopping condition variable
             stop_count = stop_count + 1
 
             testCounter = testCounter + 1
@@ -207,26 +221,23 @@ if __name__=="__main__":
             y_test = model.predict_on_batch(X_batch)
             y_test = [int(round(y)) for y in y_test]     
 
-            #print("length of y_true", len(y_true))
-            #print("length of y_test", len(y_test))
-            #print("first y_true", y_true[0])
-            #print("first y_test", y_test[0])
-
-
             conf_matrix = conf_matrix + confusion_matrix(y_true,y_test)
-            #print("conf_matrix shape",conf_matrix)
 
         print("\n")
+
+        #Temporary stopping condition variable
         stop_count = 0
 
-        print("Test accuracy val", testAccVal/testCounter)
-        print("Conf matrix", conf_matrix)
+        #Append epoch stats to respective lists
+        test_accuracies.append((testAccVal/testCounter))
+        test_confusions.append(conf_matrix.tolist())
 
 
-        #Epoch End Statistics after training  
-        
-
-
+        #Write statistics at the end of epoch to JSON 
+        write_to_json(train_times, save_path, "_traintimes")        
+        write_to_json(test_accuracies,save_path, "_accuracies")
+        write_to_json(test_confusions,save_path, "_confusions")
+        write_to_json(costs,save_path,"_costs")
 
 
 
