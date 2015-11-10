@@ -141,7 +141,7 @@ if __name__=="__main__":
         print("Training...")
 
         #Temporary stopping condition variable 
-        stop_count = 0
+        #stop_count = 0
 
         #Initialize variables for collecting minibatch cost stats and starting train timer
         costs.append([])
@@ -159,8 +159,8 @@ if __name__=="__main__":
 
         for X_batch, Y_batch in am_train_batch:
             
-            if(stop_count > 1):
-                break
+            #if(stop_count > 1):
+            #    break
 
             #Reshape input from a 3D Input to a 4D input for training    
             X_batch = X_batch[:,np.newaxis]
@@ -172,7 +172,7 @@ if __name__=="__main__":
             costs[e].append(float(loss))
             
             #Temporary stopping condition variable
-            stop_count = stop_count + 1
+            #stop_count = stop_count + 1
 
         print("\n")    
 
@@ -188,7 +188,7 @@ if __name__=="__main__":
         progbar = generic_utils.Progbar(amnte)
 
         #Temporary stopping condition var
-        stop_count = 0
+        #stop_count = 0
 
         #Initialize variables for collecting test related stats
         testCounter = 0
@@ -202,8 +202,9 @@ if __name__=="__main__":
         '''Testing loop performing tests/predict based on model'''
 
         for X_batch, Y_batch in am_test_batch:
-            if(stop_count > 1):
-                break
+            #if(stop_count > 1):
+            #    break
+            
             #Reshape input from a 3D Input to a 4D input for training
             X_batch = X_batch[:,np.newaxis]
 
@@ -211,7 +212,7 @@ if __name__=="__main__":
             progbar.add(batch_size, values=[("test loss", loss),("test acc",acc)])
 
             #Temporary stopping condition variable
-            stop_count = stop_count + 1
+            #stop_count = stop_count + 1
 
             testCounter = testCounter + 1
             testAccVal = testAccVal + acc 
@@ -226,7 +227,7 @@ if __name__=="__main__":
         print("\n")
 
         #Temporary stopping condition variable
-        stop_count = 0
+        #stop_count = 0
 
         #Append epoch stats to respective lists
         test_accuracies.append((testAccVal/testCounter))
