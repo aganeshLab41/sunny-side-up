@@ -131,7 +131,7 @@ if __name__=="__main__":
     test_confusions = []
     costs = []
 
-    save_path = 'model_stats.json'
+    save_path = 'tufs_amazon.json'
 
     #Begin runs of training and testing    
     for e in range(num_epochs):
