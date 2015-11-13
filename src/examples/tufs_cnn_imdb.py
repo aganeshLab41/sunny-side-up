@@ -152,6 +152,7 @@ if __name__=="__main__":
 
     save_path = 'tufs_imdb.json'
 
+
     #Begin runs of training and testing    
     for e in range(num_epochs):
         print('-'*10)

@@ -14,6 +14,7 @@ import time
 from datasets import amazon_reviews
 from datasets import batch_data
 from datasets import data_utils
+from datasets.sentiment140 import Sentiment140
 
 from keras.preprocessing import sequence
 from keras.optimizers import RMSprop, SGD
@@ -109,13 +110,23 @@ if __name__=="__main__":
     num_epochs = 10
 
     #Import model 
-    model,sgd = model_defn()
+    #model,sgd = model_defn()
 
     # Get training and testing sets, and their sizes for the amazon dataset
     # from HDF5 file that uses an 80/20 train/test split 
     (amtr,amte),(amntr,amnte) = datasets, sizes = batch_data.split_data(None,
         h5_path='sentiment140_split.hd5', overwrite_previous=False,shuffle=True)
+    #sentData = Sentiment140()
+
+    #Test not using HDF5 and see if behavior changes
+    #(sentr,sendev,sente) = data_utils.split_data(sentData.load_data(return_iter=False),train=.8,dev=0,test=.2)
+
+    #print("Sentiment140 tr shape", len(sentr))
+    #print("First elem", sentr[0])
+    #sentr = iter(sentr)
+    #sente = iter(sente)
     
+
     #Generator that outputs S140 training data in batches with specificed parameters
     am_train_batch = batch_data.batch_data(amtr,normalizer_fun=lambda x: x,
         transformer_fun=lambda x: data_utils.to_one_hot(x),
@@ -129,7 +140,26 @@ if __name__=="__main__":
     tweet, sentiment = am_train_batch.next()
     print("Tweet batch shape",tweet.shape)
     print("Sentiment batch shape",sentiment.shape)
-    
+
+    counter = 0
+
+    for e in range(2):
+        for X_batch, Y_batch in am_train_batch:
+            if counter % 100 == 0:
+                print("Counter val",counter)
+                print("epoch", e)
+            counter = counter + 1    
+
+    #print(tweet[0,0])
+    #print(tweet[0][0])
+
+    #oh = data_utils.to_one_hot(tweet[0,0])
+    #print(np.array_str(np.argmax(oh,axis=0)))
+    #print("Translated back into characters:\n")
+    #print(''.join(data_utils.from_one_hot(oh)))
+
+
+    '''
     #Statistics Initialization 
     train_times = []
     test_accuracies = []
@@ -251,5 +281,5 @@ if __name__=="__main__":
         #write_to_json(test_accuracies,save_path, "_accuracies")
         write_to_json(test_confusions,save_path, "_confusions")
         write_to_json(costs,save_path,"_costs")
-        
+    '''    
 

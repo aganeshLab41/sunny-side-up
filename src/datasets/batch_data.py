@@ -360,14 +360,14 @@ def split_and_batch(data_loader,
         return batch_data(a,
             normalizer_fun=lambda x: x,
             transformer_fun=transformer_fun,
-            flatten=True,
+            flatten=False,
             batch_size=batch_size)
     def test_batcher():
         (a,b),(a_size,b_size)=split_data(None, h5_path, overwrite_previous=False,shuffle=False)
         return batch_data(b,
             normalizer_fun=lambda x: x,
             transformer_fun=transformer_fun,
-            flatten=True,
+            flatten=False,
             batch_size=batch_size)
 
     return (train_batcher, test_batcher), (train_size, test_size)               

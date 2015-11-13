@@ -16,7 +16,7 @@ class TextTooShortException(DataException):
     pass
 
 def normalize(txt, vocab=None, replace_char=' ',
-                min_length=70, max_length=150, pad_out=True, 
+                min_length=100, max_length=1014, pad_out=True, 
                 to_lower=True, reverse = True, 
                 truncate_left=False, encoding="latin1"):
     ''' Takes a single string object and truncates it to max_length,

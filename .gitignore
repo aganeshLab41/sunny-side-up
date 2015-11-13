@@ -21,3 +21,4 @@ build/
 **/mturk.properties
 *.hd5
 *.json
+src/examples/downloads
