@@ -2,7 +2,9 @@
 
 # image name
 __image=lab41/keras-cuda
-__volume_host=$(pwd)
+#__volume_host=$(pwd)
+__volume_host=/data/aganesh
+
 __volume_cntr=/data
 
 # run image

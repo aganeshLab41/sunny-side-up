@@ -5,8 +5,12 @@ MAINTAINER Kyle F <kylef@lab41.org>
 
 # install base packages
 RUN apt-get update
-RUN apt-get install --assume-yes  python-dev libhdf5-dev libpng12-dev libfreetype6-dev libpng++-dev libfreetype6 libfreetype6-dev libpng12-dev pkg-config
+RUN apt-get update && \
+apt-get install --assume-yes  python-dev libhdf5-dev libpng12-dev libfreetype6-dev libpng++-dev libfreetype6 libfreetype6-dev libpng12-dev pkg-config
 
+#Upgrade pip
+#RUN pip install -U setuptools
+#RUN pip install -U pip
 
 # install python modules
 RUN pip install numpy \
@@ -18,8 +22,9 @@ RUN pip install numpy \
                 pandas \
                 passage \
                 simplejson \
-                matplotlib
-
+                matplotlib \
+		scikit-learn
+		
 
 # Adding ipython
 RUN pip install ipython \
@@ -28,6 +33,24 @@ RUN pip install ipython \
                 tornado \
                 jsonschema
 
+# add gensim and glove
+#RUN pip install gensim glove
+RUN pip install gensim
+
+# add glove-python
+#RUN cd /tmp && \
+#    git clone https://github.com/maciejkula/glove-python.git && \
+#    cd glove-python && \
+#    python setup.py install
+
+# install custom glove code
+RUN cd /tmp && \
+    git clone https://github.com/Lab41/sunny-side-up.git && \
+    cd sunny-side-up/src/glove && \
+    python setup.py install
+
+# add open weibo processing
+RUN pip install jieba pypinyin
 
 # install CUDA
 RUN cd /tmp && \

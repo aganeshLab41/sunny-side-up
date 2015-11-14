@@ -1,4 +1,8 @@
-import os
+import os,sys
+#file_path = os.path.dirname(os.path.abspath(__file__))
+#ssu_path = file_path.rsplit('/glove')
+#print(ssu_path)
+#sys.path.insert(0, ssu_path)
 import numpy as np
 from glove.glove import Glove
 from gensim.models import Doc2Vec
