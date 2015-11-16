@@ -52,12 +52,16 @@ def model_defn():
     
     model = Sequential()
 
-    model.add(Convolution2D(256,67,7,input_shape=(1,67,1014)))
-    
-    model.add(LSTM(1,init='orthogonal',forget_bias_init='one',activation='tanh',
+    #model.add(Convolution2D(256,67,7,input_shape=(1,67,1014)))
+    #model.add(Convolution1D(256,7,input_shape=(67,1014)))
+
+    model.add(LSTM(70,input_shape=(67,1014),init='orthogonal',forget_bias_init='one',activation='tanh',
         inner_activation='hard_sigmoid',truncate_gradient=-1))
 
-    model.compile(loss='binary_crossentropy', optimizer='adam', class_mode="binary")
+    model.add(Dense(1))
+    model.add(Activation('sigmoid'))
+
+    model.compile(loss='binary_crossentropy', optimizer='rmsprop', class_mode="binary")
 
     '''
     #Set Parameters for final fully connected layers 
@@ -109,12 +113,12 @@ def model_defn():
     model.compile(loss='binary_crossentropy', optimizer=sgd, class_mode="binary")
     '''
 
-    return models
+    return model
 
 if __name__=="__main__":
 
     #Set batch size for input data
-    batch_size = 128
+    batch_size = 30
 
     #Set the number of epochs to run
     num_epochs = 10
@@ -138,7 +142,7 @@ if __name__=="__main__":
         flatten=False, batch_size=batch_size)'''
 
     (imdbtr, imdbte),(train_size, test_size) = batch_data.split_and_batch(
-        data_loader=None,doclength=None,batch_size=128,h5_path='imdb_split.hd5')
+        data_loader=None,doclength=None,batch_size=batch_size,h5_path='imdb_split.hd5')
     
     print("Train size", train_size)
     print("Test size", test_size)
@@ -196,7 +200,7 @@ if __name__=="__main__":
             #    break
 
             #Reshape input from a 3D Input to a 4D input for training    
-            X_batch = X_batch[:,np.newaxis]
+            #X_batch = X_batch[:,np.newaxis]
             
             loss,acc = model.train_on_batch(X_batch, Y_batch, accuracy=True)
             progbar.add(batch_size, values=[("train loss", loss),("train acc",acc)])
@@ -241,7 +245,7 @@ if __name__=="__main__":
             #    break
             
             #Reshape input from a 3D Input to a 4D input for training
-            X_batch = X_batch[:,np.newaxis]
+            #X_batch = X_batch[:,np.newaxis]
 
             loss,acc = model.test_on_batch(X_batch, Y_batch, accuracy=True)
             progbar.add(batch_size, values=[("test loss", loss),("test acc",acc)])

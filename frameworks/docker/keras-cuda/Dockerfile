@@ -33,6 +33,8 @@ RUN pip install ipython \
                 tornado \
                 jsonschema
 
+RUN pip install -U six
+
 # add gensim and glove
 #RUN pip install gensim glove
 RUN pip install gensim

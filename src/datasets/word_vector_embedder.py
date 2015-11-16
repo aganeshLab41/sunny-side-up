@@ -4,9 +4,9 @@ import os,sys
 #print(ssu_path)
 #sys.path.insert(0, ssu_path)
 import numpy as np
-from glove.glove import Glove
+#from glove.glove import Glove
 from gensim.models import Doc2Vec
-from model_downloader import ModelDownloader
+#from model_downloader import ModelDownloader
 
 class WordVectorEmbedder:
     '''
