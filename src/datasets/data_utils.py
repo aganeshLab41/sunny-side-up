@@ -115,7 +115,8 @@ def index_as_one_hot(indices, axis=0, dtype=np.int32):
 
 def to_embedded_word(txt):
     embedder = WordVectorEmbedder('glove')
-    return embedder.embed_words_into_vectors(text)
+    #embedder = WordVectorEmbedder('word2vec')
+    return embedder.embed_words_into_vectors_averaged(txt)
 
 def latin_csv_reader(csv_data, dialect=csv.excel, **kwargs):
     ''' Function that takes an opened CSV file with

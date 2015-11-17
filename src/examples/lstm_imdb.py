@@ -24,6 +24,7 @@ from keras.layers.convolutional import Convolution1D, MaxPooling1D, MaxPooling2D
 from keras.layers.normalization import BatchNormalization
 from keras.utils import np_utils,generic_utils
 from keras.layers.recurrent import LSTM, GRU
+from keras.regularizers import l2
 #from sklearn.metrics import confusion_matrix
 
 '''
@@ -57,8 +58,8 @@ def model_defn():
 
     model.add(LSTM(70,input_shape=(67,1014),init='orthogonal',forget_bias_init='one',activation='tanh',
         inner_activation='hard_sigmoid',truncate_gradient=-1))
-
-    model.add(Dense(1))
+    model.add(Dropout(0.5))
+    model.add(Dense(1,W_regularizer=l2(0.01)))
     model.add(Activation('sigmoid'))
 
     model.compile(loss='binary_crossentropy', optimizer='rmsprop', class_mode="binary")
