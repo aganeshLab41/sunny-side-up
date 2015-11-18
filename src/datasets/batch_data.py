@@ -2,9 +2,6 @@
 
 import os
 import logging
-logging.basicConfig()
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)
 
 import numpy as np
 import h5py
@@ -13,14 +10,15 @@ import data_utils
 
 
 def batch_data(data_loader, batch_size=128, normalizer_fun=None, 
-               transformer_fun=None, flatten=True):
+               transformer_fun=None, flatten=True,
+               max_records=None, balance_labels=False,
+               nlabels=None):
     '''
     Batches data, doing all necessary preprocessing and
     normalization.
     
     If you are batching from HDF5 files, there are probably 
     much faster ways to do this.
-
     @Arguments:
         data_loader -- an iterable object that yields a single 
             record at a time, as a tuple (data, label).
@@ -30,30 +28,42 @@ def batch_data(data_loader, batch_size=128, normalizer_fun=None,
         
         batch_size -- how many records should the batcher 
             yield at a time?
-
         normalizer_fun -- function which takes the first member of the tuple yielded
             by data_loader as its input and returns a normalized
             version of it. The default implements some normalizations
             from Zhang and LeCun's character-level convolutional 
             networks paper.
-
         transformer_fun -- transforms the output of normalizer_fun into a numpy array.
             Can be used to do one-hot encoding, embedding lookups, etc.
             Output can be any 2+-dimensional numpy array.
-
         flatten -- should all dimensions of the output of transformer_fun
             be flattened (collapsed to one dimension)? If true, the 
             batch yielded will be 2-D (num batches, record size).
-
+        max_records -- if not None, batch only up to this number
+            of records and no more. Partial batches are not yielded,
+            so the lesser of dataset size or max_records, rounded
+            to batch_size, will be the total number of records yielded
+        balance_labels -- if true, will attempt to achieve equal numbers
+            of labels. Labels must be hashable, and nlabels must be 
+            provided
+        nlabels -- number of unique labels to be expected in the dataset,
+            used only if balance_labels is True
+            
     @Returns:
         generator that yields 2-tuples of (data, label), where data
         and label are numpy arrays representing a batch of data,  
         equally sized in the first dimension
     '''
 
-    docs = []
-    labels = []
+    # for the balanced_labels case: store a hash of docs indexed by label
+    docs = {}
+    if balance_labels:
+        assert nlabels is not None
+        assert batch_size % nlabels == 0
+    # for the unbalanced labels case: store tuples of doc, label
+    docs_labels = []
 
+    logger = logging.getLogger(__name__)
     logger.debug(data_loader)
 
     # set (near) identity functions for transformation functions when None
@@ -66,35 +76,75 @@ def batch_data(data_loader, batch_size=128, normalizer_fun=None,
     # loop over data, applying transforming fns,
     # accumulating records into batches,
     # and yielding them when batch size is reached
+    nr_yielded = 0
     for doc_text, label in data_loader:
+        if max_records is not None and nr_yielded > max_records:
+            return
         # transformation and normalization
         try:
             #logger.debug("Normalization........")
             doc_text = normalizer_fun(doc_text)
             # transform document into a numpy array
             transformed_doc = transformer_fun(doc_text)
-            docs.append(transformed_doc)
-            labels.append(label)
+            # add to the appropriate queue of labeled docs
+            if balance_labels:
+                try:
+                    docs[label].append(transformed_doc)
+                except KeyError as e:
+                    docs[label] = [transformed_doc]
+            else:
+                docs_labels.append((transformed_doc, label))
         except data_utils.DataException as e:
+            # text is rejected for being too short, or its rating is not usable, etc
             logger.debug("Type of input: {}".format(type(doc_text)))
-            logger.info("{}: {}".format(type(e), e))
+            logger.debug("{}: {}".format(type(e), e))
 
         # dispatch once batch is of appropriate size 
-        if len(docs) >= batch_size:
-            docs_np = np.array(docs)
+        if (balance_labels and 
+                all(len(docs[doc_subset]) >= batch_size/nlabels for doc_subset in docs) and
+                len(docs) == nlabels) or \
+            (balance_labels == False and len(docs_labels) >= batch_size):
+            # proceed in turn through documents of each label
+            # popping off until batch_size is reached
+            batched_docs = []
+            batched_labels = []
+            cur_label_idx = 0
+            if balance_labels:
+                sorted_unique_labels = sorted(docs.keys())
+                logger.debug("Accumulated records: {}".format({a: len(docs[a]) for a in docs}))
+            # main accumulation loop
+            while(len(batched_docs) < batch_size):
+                try:
+                    if balance_labels:
+                        # find which label to pop a document off for
+                        next_label = sorted_unique_labels[cur_label_idx]
+                        next_doc = docs[cur_label_idx].pop(0)
+                    else:
+                        next_doc, next_label = docs_labels.pop(0)
+                    batched_docs.append(next_doc)
+                    batched_labels.append(next_label)
+                    logger.debug("Label: {}, Length: {}".format(next_label, len(batched_docs)))
+                except IndexError as e:
+                    # catch only when one of the lists in docs is empty
+                    if e.message != 'pop from empty list':
+                        raise
+                finally:
+                    # increment label index and wrap around if necessary
+                    # only needed if balance_labels is True, but harmless if not
+                    cur_label_idx += 1
+                    if cur_label_idx == nlabels:
+                        cur_label_idx = 0
+            docs_np = np.array(batched_docs)
             if flatten==True:
                 # transform to form (batch_size, w*h); flattening doc
                 docs_np = docs_np.reshape((batch_size,-1))
             # labels come out in a separate (batch_size, 1) np array
-            labels_np = np.array(labels).reshape((batch_size, -1))
-            docs = []
-            labels = []
+            labels_np = np.array(batched_labels).reshape((batch_size, -1))
+            nr_yielded += batch_size
 
             yield docs_np, labels_np
 
 
-# Not fully tested -- still recommended to use
-# batch_data
 class BatchIterator:
     """Iterator class to wrap around batching functionality.
     Allows batched data to be iterated over multiple times.
@@ -110,8 +160,11 @@ class BatchIterator:
     def __iter__(self):
         return batch_data(*self.reset_args, **self.reset_kwargs)
 
-# not fully tested -- still recommended to use 
-# xyz.load_data
+    def next(self):
+       batch_iterator = iter(self)
+       for batch in batch_iterator:
+           yield batch
+
 class DataIterator:
     """Utility class to wrap a data loading generator function,
     providing a reusable data container if needed.
@@ -121,7 +174,6 @@ class DataIterator:
         @Arguments:
             load_fun -- function object which returns
             a generator over tuples of individual records (data, label)
-
             args, kwargs are passed on to load_fun on every fresh iteration
         """
         self.load_fun = load_fun
@@ -130,6 +182,11 @@ class DataIterator:
 
     def __iter__(self):
         return self.load_fun(*self.reset_args, **self.reset_kwargs)
+
+    def next(self):
+        data_iterator = iter(self)
+        for datum in data_iterator:
+            yield datum
 
 
 class H5Iterator:
@@ -146,12 +203,9 @@ class H5Iterator:
                         [labels_name]
                         (...)
                 where data_name and labels_name are datasets at the root level
-
             data_name -- name of features-bearing dataset
-
             labels_name -- name of dataset with labels. these may have a different type from 
                 data_name, which is why they are stored separately
-
             shuffle -- should numpy randomly shuffle the indices each time an iterator is 
                 made from this container?
         """
@@ -166,6 +220,7 @@ class H5Iterator:
         self.h5file.close()
     
     def __iter__(self):
+        logger = logging.getLogger(__name__)
         if self.shuffle == True:
             indices = np.random.permutation(self.indices)
         else:
@@ -215,7 +270,6 @@ def pick_splits(splits):
 def write_batch_to_h5(splits, h5_file, data_sizes, new_data, new_labels):
     """ Takes some information about a minibatch of data and 
         writes it into the given HDF5 file
-
         @Arguments
             splits -- akin to split data, a series of probabilities
                 that sum to less than one. The nth probability is the 
@@ -341,6 +395,7 @@ def split_and_batch(data_loader,
                     batch_size, 
                     doclength,
                     h5_path,
+                    flatten=False,
                     rng_seed=888,
                     normalizer_fun=data_utils.normalize,
                     transformer_fun=data_utils.to_one_hot):
@@ -360,23 +415,23 @@ def split_and_batch(data_loader,
         return batch_data(a,
             normalizer_fun=lambda x: x,
             transformer_fun=transformer_fun,
-            flatten=False,
+            flatten=flatten,
             batch_size=batch_size)
     def test_batcher():
         (a,b),(a_size,b_size)=split_data(None, h5_path, overwrite_previous=False,shuffle=False)
         return batch_data(b,
             normalizer_fun=lambda x: x,
             transformer_fun=transformer_fun,
-            flatten=False,
+            flatten=flatten,
             batch_size=batch_size)
 
     return (train_batcher, test_batcher), (train_size, test_size)               
                 
 if __name__=="__main__":
     # some demo code
-    import imdb
+    logging.basicConfig()
+    logging.getLogger(__name__).setLevel(logging.INFO)
     import amazon_reviews
-    import batch_data
     import data_utils
     import argparse
 
@@ -415,7 +470,8 @@ if __name__=="__main__":
         am_train_batch = batch_data(amtr,
             normalizer_fun=lambda x: data_utils.normalize(x, 
                 max_length=300, 
-                truncate_left=True),
+                truncate_left=True,
+                encoding=None),
             transformer_fun=None)
         am_test_batch = batch_data(amte,
             normalizer_fun=None,transformer_fun=None)
@@ -440,6 +496,15 @@ if __name__=="__main__":
         print "Translated back into characters:\n"
         print ''.join(data_utils.from_one_hot(oh))
 
+        # demo balanced batching
+        am_balanced_batcher = batch_data(amtr,balance_labels=True)
+        balanced_batch = am_balanced_batcher.next()
+        print 'Balanced batch:'
+        balanced_label_counts = {}
+        for idx in range(balanced_batch[1].shape[0]):
+            label = balanced_batch[1][idx,0]
+            balanced_label_counts[label] = balanced_label_counts.get(label, 0) + 1
+        print balanced_label_counts
 
     # Demo iterator utility classes
     # iterate multiple times over same data 

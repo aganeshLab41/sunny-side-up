@@ -23,8 +23,8 @@ RUN pip install numpy \
                 passage \
                 simplejson \
                 matplotlib \
-		scikit-learn
-		
+		scikit-learn \
+		nltk
 
 # Adding ipython
 RUN pip install ipython \
