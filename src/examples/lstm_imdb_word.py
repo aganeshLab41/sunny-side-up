@@ -36,7 +36,7 @@ formerly known as "Text Understanding from Scratch" (http://arxiv.org/pdf/1502.0
 THEANO_FLAGS=mode=FAST_RUN,device=gpu1,floatX=float32 python lstm_imdb_word.py
 '''
 
-def model_defn():
+def model_defn(num_words,model_dim):
 
     print('Build model...')
     
@@ -45,13 +45,13 @@ def model_defn():
     #model.add(Convolution2D(256,67,7,input_shape=(1,67,1014)))
     #model.add(Convolution1D(256,7,input_shape=(67,1014)))
 
-    model.add(LSTM(128,input_shape=(200,300),init='orthogonal',forget_bias_init='one',activation='tanh',
+    model.add(LSTM(300,input_shape=(num_words,model_dim),init='orthogonal',forget_bias_init='one',activation='tanh',
         inner_activation='hard_sigmoid',truncate_gradient=-1))
     model.add(Dropout(0.5))
     model.add(Dense(1))
     model.add(Activation('sigmoid'))
 
-    model.compile(loss='binary_crossentropy', optimizer='rmsprop', class_mode="binary")
+    model.compile(loss='binary_crossentropy', optimizer='adam', class_mode="binary")
 
     return model
 
@@ -63,15 +63,12 @@ if __name__=="__main__":
     #Set the number of epochs to run
     num_epochs = 10
 
-    num_words = 200
-
-    #Import model 
-    model = model_defn()
+    num_words = 100
 
     embedder = wv.WordVectorEmbedder('word2vec')
 
-    fooText = "people"
-    print("Shape of fooText", embedder.word_vector_word2vec(fooText).shape)
+    #Import model 
+    model = model_defn(num_words,embedder.num_features())
 
     (imdbtr, imdbte),(train_size, test_size) = batch_data.split_and_batch(
         data_loader=None,doclength=None,batch_size=batch_size,h5_path='imdb_split.hd5',
@@ -88,6 +85,7 @@ if __name__=="__main__":
     print("result shape", result.shape)
 
     
+
     #Begin runs of training and testing    
     for e in range(num_epochs):
         print('-'*10)

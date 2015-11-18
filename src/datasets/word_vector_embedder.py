@@ -126,10 +126,9 @@ class WordVectorEmbedder:
                 for i in xrange(padding_length):
                     #vectors.append(np.zeros_like(vectors[0]))
                     vectors.append(np.zeros(self.num_features()))
-        vectors = np.array(vectors)
-        # return ndarray of embedded words
-        #return np.array(vectors)
-        return vectors
+                    
+        return np.array(vectors)
+        
 
     def embed_words_into_vectors_concatenated(self, words, num_features=None):
         vectors = self.embed_words_into_vectors(words, num_features)
