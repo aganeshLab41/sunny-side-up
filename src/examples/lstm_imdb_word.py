@@ -45,7 +45,7 @@ def model_defn(num_words,model_dim):
     #model.add(Convolution2D(256,67,7,input_shape=(1,67,1014)))
     #model.add(Convolution1D(256,7,input_shape=(67,1014)))
 
-    model.add(LSTM(300,input_shape=(num_words,model_dim),init='orthogonal',forget_bias_init='one',activation='tanh',
+    model.add(LSTM(300,input_shape=(num_words,model_dim),inner_init='orthogonal',forget_bias_init='one',activation='tanh',
         inner_activation='hard_sigmoid',truncate_gradient=-1))
     model.add(Dropout(0.5))
     model.add(Dense(1))
