@@ -88,6 +88,9 @@ def run_tests():
             if(add_dim_to_input == True):
                 X_batch = X_batch[:,np.newaxis]
 
+            #print("Debugging X_batch size", X_batch.shape)    
+            #print("Debugging Y_batch size", Y_batch.shape)
+
             loss,acc = model.train_on_batch(X_batch, Y_batch, accuracy=True)
             progbar.add(batch_size, values=[("train loss", loss),("train acc",acc)])
 
@@ -109,7 +112,7 @@ def run_tests():
         print("\n")
 
 
-def word_embedding_input(embedding_type,batch_size=30,num_words=100):
+def word_embedding_input(embedding_type,batch_size=30,num_words=99):
 
     if(embedding_type == 'word2vec'):
         embedder = wv.WordVectorEmbedder('word2vec')
@@ -207,7 +210,7 @@ def word_cnn(embedding_type):
     model = Sequential()
 
     #Input = #alphabet=(200 or 300) x 99
-    model.add(Convolution2D(256,num_features,7,input_shape=(1,num_features,num_words)))
+    model.add(Convolution2D(256,num_words,7,input_shape=(1,num_words,num_features)))
     model.add(MaxPooling2D(pool_size=(1,3)))
 
     #Input = 31 x 256
@@ -263,7 +266,7 @@ def word_lstm(embedding_type):
     
     model = Sequential()
 
-    model.add(LSTM(num_features,input_shape=(num_features,num_words),inner_init='orthogonal',forget_bias_init='one',activation='tanh',
+    model.add(LSTM(num_features,input_shape=(num_words,num_features),inner_init='orthogonal',forget_bias_init='one',activation='tanh',
         inner_activation='hard_sigmoid',truncate_gradient=-1))
     model.add(Dropout(0.5))
     model.add(Dense(1))
@@ -278,7 +281,7 @@ def char_lstm():
     num_features = 67
     num_chars = 1014
 
-    print('Build word lstm model...')
+    print('Build char lstm model...')
     
     model = Sequential()
 
