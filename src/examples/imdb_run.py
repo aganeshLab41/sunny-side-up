@@ -11,7 +11,9 @@ import time
 from datasets import word_vector_embedder as wv
 from datasets import batch_data
 from datasets import data_utils
+from datasets import imdb
 from sys import argv
+from datasets.batch_data import BatchIterator, DataIterator
 
 from keras.preprocessing import sequence
 from keras.optimizers import RMSprop, SGD
@@ -83,7 +85,7 @@ def run_tests():
         #Progress bar initialized for training data
         progbar = generic_utils.Progbar(tr_size)
 
-        for X_batch, Y_batch in imdbtr():
+        for X_batch, Y_batch in imdbtr:
 
             if(add_dim_to_input == True):
                 X_batch = X_batch[:,np.newaxis]
@@ -101,7 +103,7 @@ def run_tests():
         #Progress bar initialized for testing data
         progbar = generic_utils.Progbar(te_size)
 
-        for X_batch, Y_batch in imdbte():
+        for X_batch, Y_batch in imdbte:
 
             if(add_dim_to_input == True):
                 X_batch = X_batch[:,np.newaxis]
@@ -119,14 +121,51 @@ def word_embedding_input(embedding_type,batch_size=30,num_words=99):
     else:
         embedder = wv.WordVectorEmbedder('glove')   
 
-    (imdbtr, imdbte),(train_size, test_size) = batch_data.split_and_batch(
+    '''(imdbtr, imdbte),(train_size, test_size) = batch_data.split_and_batch(
         data_loader=None,doclength=None,batch_size=batch_size,h5_path='imdb_split.hd5',
         transformer_fun=lambda x: embedder.embed_words_into_vectors(data_utils.tokenize(x),
             num_features=num_words),
         normalizer_fun=lambda x: data_utils.normalize(x,encoding=None,reverse=False),
-        flatten=False)  
+        flatten=False) ''' 
 
-    return (imdbtr, imdbte),(train_size, test_size)
+    (imdbtr, imdbte),(train_size,test_size) = batch_data.split_data(
+            DataIterator(imdb.load_data,auto_reset=True), 
+            h5_path='imdb_split.hd5', 
+            overwrite_previous=False,
+            shuffle=True)
+
+    imdb_train_batch = BatchIterator(imdbtr,
+            normalizer_fun=lambda x: data_utils.normalize(x, 
+                min_length=100,
+                max_length=1014, 
+                truncate_left=True,
+                encoding=None,
+                reverse=True),
+
+            transformer_fun=lambda x: embedder.embed_words_into_vectors(data_utils.tokenize(x),
+            num_features=num_words),
+
+            flatten=False, 
+            batch_size=batch_size,
+            auto_reset=True)
+
+    imdb_test_batch = BatchIterator(imdbte,
+            normalizer_fun=lambda x: data_utils.normalize(x, 
+                min_length=100,
+                max_length=1014, 
+                truncate_left=True,
+                encoding=None,
+                reverse=True),
+
+            transformer_fun=lambda x: embedder.embed_words_into_vectors(data_utils.tokenize(x),
+            num_features=num_words),
+
+            flatten=False, 
+            batch_size=batch_size,
+            auto_reset=True)
+
+
+    return (imdb_train_batch, imdb_test_batch),(train_size, test_size)
 
 def char_input(batch_size=30):
 
@@ -297,4 +336,169 @@ def char_lstm():
 
 if __name__=="__main__":
     run_tests()
+
+    #batch_size=30
+    #num_words=99
+    #embedder = wv.WordVectorEmbedder('word2vec')
+
+    '''
+    (imdbtr, imdbte),(train_size, test_size) = batch_data.split_and_batch(
+        data_loader=None,doclength=None,batch_size=batch_size,h5_path='imdb_split.hd5',
+        transformer_fun=lambda x: embedder.embed_words_into_vectors(data_utils.tokenize(x),
+            num_features=num_words),
+        normalizer_fun=lambda x: data_utils.normalize(x,encoding=None,reverse=False),
+        flatten=False)
+
+    (imdbtr, imdbte),(train_size, test_size) = batch_data.split_and_batch(
+        data_loader=imdb.load_data,doclength=None,batch_size=batch_size,h5_path='crap_imdb.hd5',
+        normalizer_fun=lambda x: data_utils.normalize(x,max_length=300,reverse=False))
+    '''
+    '''(imdbtr, imdbte),(tr,te) = datasets, sizes = batch_data.split_data(
+    batch_data.batch_data(imdb.load_data, normalizer_fun=lambda x: data_utils.normalize(x,encoding=None,reverse=False),
+        transformer_fun=None), h5_path="crap_imdb.hd5",overwrite_previous=True)'''
+    
+    '''
+    #Possible Solution
+    (imdbtr,imdbte),(tr,te) = batch_data.split_data(BatchIterator(
+            DataIterator(imdb.load_data),
+            normalizer_fun=lambda x: data_utils.normalize(x,reverse=False)), 
+            h5_path='crap_imdb.hd5',
+            overwrite_previous=False)
+
+    imdb_train_batch = batch_data.batch_data(imdbtr,
+        transformer_fun=lambda x: data_utils.to_one_hot(x),
+        flatten=False, batch_size=batch_size)
+    '''
+
+
+
+    '''Stuff that works
+
+    (imdbtr, imdbte),(tr,te) = batch_data.split_data(
+            None, 
+            h5_path='imdb_split.hd5', 
+            overwrite_previous=False,
+            shuffle=True)
+
+    imdb_train_batch = batch_data.batch_data(imdbtr,
+            normalizer_fun=lambda x: data_utils.normalize(x, 
+                min_length=100,
+                max_length=1014, 
+                truncate_left=True,
+                encoding=None,
+                reverse=True),
+
+            transformer_fun=lambda x: embedder.embed_words_into_vectors(data_utils.tokenize(x),
+            num_features=num_words),
+
+            flatten=False, 
+            batch_size=batch_size)
+    '''
+
+    ''' More stuff that sort of begins to work
+    (imdbtr, imdbte),(tr,te) = batch_data.split_data(None,
+        h5_path='crap_imdb.hd5',
+        overwrite_previous=False,
+        shuffle=True)    
+
+    imdb_train_batch = BatchIterator(imdbtr,
+            normalizer_fun=lambda x: data_utils.normalize(x, 
+            min_length=100,
+            max_length=1014, 
+            truncate_left=True,
+            encoding=None,
+            reverse=False),
+
+            transformer_fun=lambda x: data_utils.to_one_hot(x),
+            
+            flatten=False, 
+            batch_size=batch_size)
+    '''
+    '''Even more stuff that sort of begins to work
+
+    (imdbtr, imdbte),(tr,te) = batch_data.split_data(DataIterator(imdb.load_data),
+        h5_path='imdb_split.hd5',
+        overwrite_previous=False,
+        shuffle=True)    
+
+    imdb_train_batch = BatchIterator(imdbtr,
+            normalizer_fun=lambda x: data_utils.normalize(x, 
+            min_length=100,
+            max_length=1014, 
+            truncate_left=True,
+            encoding=None,
+            reverse=True),
+
+            transformer_fun=lambda x: data_utils.to_one_hot(x),
+            
+            flatten=False, 
+            batch_size=batch_size)
+    '''
+
+
+
+    '''(imdbtr,imdbte),(tr,te) = batch_data.split_data(BatchIterator(
+            None,
+            normalizer_fun=lambda x: x, 
+            transformer_fun=lambda x: embedder.embed_words_into_vectors(data_utils.tokenize(x),
+            num_features=num_words), flatten=False),h5_path='crap_imdb.hd5',
+            overwrite_previous=False)'''
+
+    #Generator that outputs Amazon training data in batches with specificed parameters
+    
+
+    '''(imdbtr, imdbte),(train_size, test_size) = batch_data.split_and_batch(
+        data_loader=None,doclength=None,batch_size=batch_size,h5_path='crap_imdb.hd5',
+        normalizer_fun=lambda x: data_utils.normalize(x,max_length=300,reverse=False))
+    
+    '''
+
+    '''(imdbtr, imdbte), (amntr, amnte) = datasets, sizes = batch_data.split_data(
+    batch_data.batch_data(amzn(),
+                          normalizer_fun=data_utils.normalize,
+                          transformer_fun=None),
+    h5_path="crap_imdb.hd5",
+    overwrite_previous=True,
+    in_memory=False)'''
+    
+    #text,label = imdb_train_batch.next()
+    #print("Text shape", text.shape)
+    #print("Sent shape", label.shape)
+
+
+    #print("Type: {}".format(type(text)))
+    #print("First record of first batch:")
+    #print("Type (1 level in): {}".format(type(text[0])))
+    #print("Type of record (2 levels in): {}".format(type(text[0,0])))
+    #print(text[0,0])
+    #print("Sentiment label: {}".format(label[0,0]))
+    #print(np.array_str(np.argmax(text[0,0],axis=0)))
+    
+
+
+
+    #print(''.join(data_utils.from_one_hot(text[0])))
+
+    
+
+
+    #print("Training size", tr)
+    #print("testing size", te)
+
+    #print("Type of imdbtr",type(imdbtr.next()))
+    #print("Type of tr", type(te))
+
+    #text,label = imdbtr.next()
+    #print("Text shape", text.shape)
+    #print("Sent shape", label.shape)
+
+    #print("First record of first batch:")
+    #print("Type (1 level in): {}".format(type(text[0])))
+    #print("Type of record (2 levels in): {}".format(type(text[0,0])))
+    #print("Actual record",text[0,0])
+    #print("Sentiment label: {}".format(label[0,0]))
+
+
+
+
 
