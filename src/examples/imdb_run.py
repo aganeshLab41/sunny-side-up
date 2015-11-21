@@ -39,29 +39,35 @@ def run_tests():
     num_epochs = 10
 
     #Set batch size for training
-    batch_size = 128
+    batch_size = 30
 
     #Set boolean for if input needs to be transformed to 4D from 3D
     add_dim_to_input = False
+
+    #Set boolean for if sgd learning rate needs to be changed every few epochs
+    halve_lr = False
 
     #Set input data and model based on command line input and model 
     if(model_name == 'char_cnn'):
         (imdbtr, imdbte),(tr_size, te_size) = char_input(batch_size=batch_size)
         model,sgd = char_cnn()
         add_dim_to_input = True
+        halve_lr = True
 
     elif(model_name == 'glove_cnn'):
         (imdbtr, imdbte),(tr_size, te_size) = word_embedding_input('glove',batch_size=batch_size)
         model,sgd = word_cnn('glove')
         add_dim_to_input = True
+        halve_lr = True
 
     elif(model_name == 'word2vec_cnn'):
         (imdbtr, imdbte),(tr_size, te_size) = word_embedding_input('word2vec',batch_size=batch_size)
         model,sgd = word_cnn('word2vec')
         add_dim_to_input = True
+        halve_lr = True
 
     elif(model_name == 'char_lstm'):
-        (imdbtr, imdbte),(tr_size, te_size) = char_input(batch_size=batch_size)
+        (imdbtr, imdbte),(tr_size, te_size) = char_input(batch_size=batch_size,chars_reversed=False)
         model = char_lstm()
 
     elif(model_name == 'glove_lstm'):
@@ -82,6 +88,10 @@ def run_tests():
         print('-'*10)
         print("Training...")
 
+        if(halve_lr):
+            if(e % 3 == 2):
+                sgd.lr.set_value(sgd.lr.get_value()/2)
+
         #Progress bar initialized for training data
         progbar = generic_utils.Progbar(tr_size)
 
@@ -90,8 +100,8 @@ def run_tests():
             if(add_dim_to_input == True):
                 X_batch = X_batch[:,np.newaxis]
 
-            #print("Debugging X_batch size", X_batch.shape)    
-            #print("Debugging Y_batch size", Y_batch.shape)
+            print("Debugging X_batch size", X_batch.shape)    
+            print("Debugging Y_batch size", Y_batch.shape)
 
             loss,acc = model.train_on_batch(X_batch, Y_batch, accuracy=True)
             progbar.add(batch_size, values=[("train loss", loss),("train acc",acc)])
@@ -167,12 +177,44 @@ def word_embedding_input(embedding_type,batch_size=30,num_words=99):
 
     return (imdb_train_batch, imdb_test_batch),(train_size, test_size)
 
-def char_input(batch_size=30):
+def char_input(batch_size=30,chars_reversed=True):
 
-    (imdbtr, imdbte),(train_size, test_size) = batch_data.split_and_batch(
-        data_loader=None,doclength=None,batch_size=batch_size,h5_path='imdb_split.hd5')
+    #(imdbtr, imdbte),(train_size, test_size) = batch_data.split_and_batch(
+    #    data_loader=None,doclength=None,batch_size=batch_size,h5_path='imdb_split.hd5')
+    
+    (imdbtr, imdbte),(train_size,test_size) = batch_data.split_data(
+            DataIterator(imdb.load_data,auto_reset=True), 
+            h5_path='imdb_split.hd5', 
+            overwrite_previous=False,
+            shuffle=True)
 
-    return (imdbtr, imdbte),(train_size, test_size)
+    imdb_train_batch = BatchIterator(imdbtr,
+            normalizer_fun=lambda x: data_utils.normalize(x, 
+                min_length=100,
+                max_length=1014, 
+                encoding=None,
+                reverse= not chars_reversed),
+
+            transformer_fun=lambda x: data_utils.to_one_hot(x),
+
+            flatten=False, 
+            batch_size=batch_size,
+            auto_reset=True)
+
+    imdb_test_batch = BatchIterator(imdbte,
+            normalizer_fun=lambda x: data_utils.normalize(x, 
+                min_length=100,
+                max_length=1014, 
+                encoding=None,
+                reverse= not chars_reversed),
+
+            transformer_fun=lambda x: data_utils.to_one_hot(x),
+
+            flatten=False, 
+            batch_size=batch_size,
+            auto_reset=True)
+
+    return (imdb_train_batch, imdb_test_batch),(train_size, test_size)
 
 def char_cnn():
 
@@ -339,8 +381,16 @@ if __name__=="__main__":
 
     #batch_size=30
     #num_words=99
-    #embedder = wv.WordVectorEmbedder('word2vec')
+    #embedder1 = wv.WordVectorEmbedder('word2vec')
+    #example1 = embedder1.word_vector_word2vec("Hello")
+    #print("Number of bytes w2vec", example1.nbytes)
 
+    #embedder2 = wv.WordVectorEmbedder('glove')
+    #example2 = embedder2.word_vector_glove("Hello")
+    #print("Number of bytes glove", example2.nbytes)
+
+    #print(example)
+    #print("Shape", example.shape)
     '''
     (imdbtr, imdbte),(train_size, test_size) = batch_data.split_and_batch(
         data_loader=None,doclength=None,batch_size=batch_size,h5_path='imdb_split.hd5',

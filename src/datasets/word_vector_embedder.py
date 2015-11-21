@@ -126,7 +126,7 @@ class WordVectorEmbedder:
                 for i in xrange(padding_length):
                     #vectors.append(np.zeros_like(vectors[0]))
                     vectors.append(np.zeros(self.num_features()))
-                    
+
         return np.array(vectors)
         
 
