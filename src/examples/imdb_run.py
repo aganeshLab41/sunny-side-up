@@ -25,6 +25,7 @@ from keras.layers.normalization import BatchNormalization
 from keras.utils import np_utils,generic_utils
 from keras.layers.recurrent import LSTM, GRU
 from keras.regularizers import l2
+from sklearn.metrics import confusion_matrix
 
 '''
 THEANO_FLAGS=mode=FAST_RUN,device=gpu0,floatX=float32 python imdb_run.py
@@ -39,7 +40,10 @@ def run_tests():
     num_epochs = 10
 
     #Set batch size for training
-    batch_size = 30
+    batch_size = 128
+
+    #Set predefined window of words to look at for word related models/embeddings
+    num_words = 99
 
     #Set boolean for if input needs to be transformed to 4D from 3D
     add_dim_to_input = False
@@ -55,14 +59,14 @@ def run_tests():
         halve_lr = True
 
     elif(model_name == 'glove_cnn'):
-        (imdbtr, imdbte),(tr_size, te_size) = word_embedding_input('glove',batch_size=batch_size)
-        model,sgd = word_cnn('glove')
+        (imdbtr, imdbte),(tr_size, te_size) = word_embedding_input('glove',batch_size=batch_size,num_words=num_words)
+        model,sgd = word_cnn('glove',num_words)
         add_dim_to_input = True
         halve_lr = True
 
     elif(model_name == 'word2vec_cnn'):
-        (imdbtr, imdbte),(tr_size, te_size) = word_embedding_input('word2vec',batch_size=batch_size)
-        model,sgd = word_cnn('word2vec')
+        (imdbtr, imdbte),(tr_size, te_size) = word_embedding_input('word2vec',batch_size=batch_size,num_words=num_words)
+        model,sgd = word_cnn('word2vec',num_words)
         add_dim_to_input = True
         halve_lr = True
 
@@ -71,15 +75,23 @@ def run_tests():
         model = char_lstm()
 
     elif(model_name == 'glove_lstm'):
-        (imdbtr, imdbte),(tr_size, te_size) = word_embedding_input('glove',batch_size=batch_size)
-        model = word_lstm('glove')
+        (imdbtr, imdbte),(tr_size, te_size) = word_embedding_input('glove',batch_size=batch_size,num_words=num_words)
+        model = word_lstm('glove',num_words)
 
     elif(model_name == 'word2vec_lstm'):    
-        (imdbtr, imdbte),(tr_size, te_size) = word_embedding_input('word2vec',batch_size=batch_size)
-        model = word_lstm('word2vec')
+        (imdbtr, imdbte),(tr_size, te_size) = word_embedding_input('word2vec',batch_size=batch_size,num_words=num_words)
+        model = word_lstm('word2vec',num_words)
 
     else:       
         raise Exception('Input the correct model name')
+
+    #Statistics Initialization 
+    train_times = []
+    test_accuracies = []
+    test_confusions = []
+    costs = []    
+    save_path = 'imdb/'+ model_name + '/model.json'
+    model_weights = 'imdb/'+ model_name + '/model_weights.hd5'
 
     #Begin runs of training and testing    
     for e in range(num_epochs):
@@ -88,6 +100,11 @@ def run_tests():
         print('-'*10)
         print("Training...")
 
+        #Initialize variables for collecting minibatch cost stats and starting train timer
+        costs.append([])
+        train_times.append({})
+        train_times[e]['start'+'_epoch_'+str(e)] = time.time()
+
         if(halve_lr):
             if(e % 3 == 2):
                 sgd.lr.set_value(sgd.lr.get_value()/2)
@@ -95,20 +112,43 @@ def run_tests():
         #Progress bar initialized for training data
         progbar = generic_utils.Progbar(tr_size)
 
+        #Initialize train stats variables
+        trainCounter = 0
+
         for X_batch, Y_batch in imdbtr:
 
             if(add_dim_to_input == True):
                 X_batch = X_batch[:,np.newaxis]
 
-            print("Debugging X_batch size", X_batch.shape)    
-            print("Debugging Y_batch size", Y_batch.shape)
+            #print("Debugging X_batch size", X_batch.shape)    
+            #print("Debugging Y_batch size", Y_batch.shape)
 
             loss,acc = model.train_on_batch(X_batch, Y_batch, accuracy=True)
             progbar.add(batch_size, values=[("train loss", loss),("train acc",acc)])
 
+            trainCounter = trainCounter + 1
+
+            #Record costs after each minibatch
+            costs[e].append(float(loss))
+
         print("\n") 
 
+        #Record how long training took per epoch
+        train_times[e]['end'+'_epoch_'+str(e)] = time.time()
+        
+        #Save the model every epoch into hd5 file    
+        model.save_weights(model_weights,overwrite=True)
+
         print("\nTesting...")
+
+        #Initialize variables for collecting test related stats
+        testCounter = 0
+        testAccVal = 0
+
+        #Confusion matrix initializations
+        y_true = []
+        y_test = []
+        conf_matrix = np.zeros((2,2))
         
         #Progress bar initialized for testing data
         progbar = generic_utils.Progbar(te_size)
@@ -121,8 +161,40 @@ def run_tests():
             loss,acc = model.test_on_batch(X_batch, Y_batch, accuracy=True)
             progbar.add(batch_size, values=[("test loss", loss),("test acc",acc)])
 
+            testCounter = testCounter + 1
+            testAccVal = testAccVal + acc 
+
+            #Calculate confusion matrix
+            y_true = Y_batch
+            y_test = model.predict_on_batch(X_batch)
+            y_test = [int(round(y)) for y in y_test]     
+
+            conf_matrix = conf_matrix + confusion_matrix(y_true,y_test)
+
         print("\n")
 
+        #Append epoch stats to respective lists
+        test_accuracies.append((testAccVal/testCounter))
+        test_confusions.append(conf_matrix.tolist())
+
+        #Write statistics at the end of epoch to JSON 
+        write_to_json(train_times, save_path, "_traintimes")        
+        write_to_json(test_accuracies,save_path, "_accuracies")
+        write_to_json(test_confusions,save_path, "_confusions")
+        write_to_json(costs,save_path,"_costs")
+
+def write_to_json(obj, path_base, path_decorator):
+        """
+        Writes (or overwrites) a JSON file located via a regular 
+        combination of path base and path_decorator, dumping a JSON
+        representation of obj to that file. Utility function for various 
+        callback events.
+        """
+        # path decorator goes between filename and extension
+        path_part, ext = os.path.splitext(path_base)
+        full_path = "{}{}{}".format(path_part, path_decorator, ext)
+        with open(full_path, "w") as f:
+            json.dump(obj, f)
 
 def word_embedding_input(embedding_type,batch_size=30,num_words=99):
 
@@ -274,9 +346,7 @@ def char_cnn():
     
     return model,sgd
 
-def word_cnn(embedding_type):
-
-    num_words = 99
+def word_cnn(embedding_type,num_words):
 
     if(embedding_type=='word2vec'):
         num_features = 300
@@ -334,10 +404,8 @@ def word_cnn(embedding_type):
     
     return model,sgd
 
-def word_lstm(embedding_type):
+def word_lstm(embedding_type, num_words):
     
-    num_words = 99
-
     if(embedding_type=='word2vec'):
         num_features = 300
     else:   

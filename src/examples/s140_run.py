@@ -11,7 +11,7 @@ import time
 from datasets import word_vector_embedder as wv
 from datasets import batch_data
 from datasets import data_utils
-from datasets import imdb
+from datasets.sentiment140 import Sentiment140
 from sys import argv
 from datasets.batch_data import BatchIterator, DataIterator
 
@@ -28,7 +28,7 @@ from keras.regularizers import l2
 from sklearn.metrics import confusion_matrix
 
 '''
-THEANO_FLAGS=mode=FAST_RUN,device=gpu0,floatX=float32 python imdb_run.py
+THEANO_FLAGS=mode=FAST_RUN,device=gpu0,floatX=float32 python s140_run.py
 '''
 
 def run_tests():
@@ -43,7 +43,7 @@ def run_tests():
     batch_size = 128
 
     #Set predefined window of words to look at for word related models/embeddings
-    num_words = 99
+    num_words = 50
 
     #Set boolean for if input needs to be transformed to 4D from 3D
     add_dim_to_input = False
@@ -53,33 +53,33 @@ def run_tests():
 
     #Set input data and model based on command line input and model 
     if(model_name == 'char_cnn'):
-        (imdbtr, imdbte),(tr_size, te_size) = char_input(batch_size=batch_size)
+        (s140tr, s140te),(tr_size, te_size) = char_input(batch_size=batch_size)
         model,sgd = char_cnn()
         add_dim_to_input = True
         halve_lr = True
 
     elif(model_name == 'glove_cnn'):
-        (imdbtr, imdbte),(tr_size, te_size) = word_embedding_input('glove',batch_size=batch_size,num_words=num_words)
+        (s140tr, s140te),(tr_size, te_size) = word_embedding_input('glove',batch_size=batch_size,num_words=num_words)
         model,sgd = word_cnn('glove',num_words)
         add_dim_to_input = True
         halve_lr = True
 
     elif(model_name == 'word2vec_cnn'):
-        (imdbtr, imdbte),(tr_size, te_size) = word_embedding_input('word2vec',batch_size=batch_size,num_words=num_words)
+        (s140tr, s140te),(tr_size, te_size) = word_embedding_input('word2vec',batch_size=batch_size,num_words=num_words)
         model,sgd = word_cnn('word2vec',num_words)
         add_dim_to_input = True
         halve_lr = True
 
     elif(model_name == 'char_lstm'):
-        (imdbtr, imdbte),(tr_size, te_size) = char_input(batch_size=batch_size,chars_reversed=False)
+        (s140tr, s140te),(tr_size, te_size) = char_input(batch_size=batch_size,chars_reversed=False)
         model = char_lstm()
 
     elif(model_name == 'glove_lstm'):
-        (imdbtr, imdbte),(tr_size, te_size) = word_embedding_input('glove',batch_size=batch_size,num_words=num_words)
+        (s140tr, s140te),(tr_size, te_size) = word_embedding_input('glove',batch_size=batch_size,num_words=num_words)
         model = word_lstm('glove',num_words)
 
     elif(model_name == 'word2vec_lstm'):    
-        (imdbtr, imdbte),(tr_size, te_size) = word_embedding_input('word2vec',batch_size=batch_size,num_words=num_words)
+        (s140tr, s140te),(tr_size, te_size) = word_embedding_input('word2vec',batch_size=batch_size,num_words=num_words)
         model = word_lstm('word2vec',num_words)
 
     else:       
@@ -90,8 +90,8 @@ def run_tests():
     test_accuracies = []
     test_confusions = []
     costs = []    
-    save_path = 'imdb/'+ model_name + '/model.json'
-    model_weights = 'imdb/'+ model_name + '/model_weights.hd5'
+    save_path = 's140/'+ model_name + '/model.json'
+    model_weights = 's140/'+ model_name + '/model_weights.hd5'
 
     #Begin runs of training and testing    
     for e in range(num_epochs):
@@ -115,7 +115,7 @@ def run_tests():
         #Initialize train stats variables
         trainCounter = 0
 
-        for X_batch, Y_batch in imdbtr:
+        for X_batch, Y_batch in s140tr:
 
             if(add_dim_to_input == True):
                 X_batch = X_batch[:,np.newaxis]
@@ -153,7 +153,7 @@ def run_tests():
         #Progress bar initialized for testing data
         progbar = generic_utils.Progbar(te_size)
 
-        for X_batch, Y_batch in imdbte:
+        for X_batch, Y_batch in s140te:
 
             if(add_dim_to_input == True):
                 X_batch = X_batch[:,np.newaxis]
@@ -203,23 +203,25 @@ def word_embedding_input(embedding_type,batch_size=30,num_words=99):
     else:
         embedder = wv.WordVectorEmbedder('glove')   
 
-    '''(imdbtr, imdbte),(train_size, test_size) = batch_data.split_and_batch(
+    '''(s140tr, s140te),(train_size, test_size) = batch_data.split_and_batch(
         data_loader=None,doclength=None,batch_size=batch_size,h5_path='imdb_split.hd5',
         transformer_fun=lambda x: embedder.embed_words_into_vectors(data_utils.tokenize(x),
             num_features=num_words),
         normalizer_fun=lambda x: data_utils.normalize(x,encoding=None,reverse=False),
         flatten=False) ''' 
 
-    (imdbtr, imdbte),(train_size,test_size) = batch_data.split_data(
-            DataIterator(imdb.load_data,auto_reset=True), 
-            h5_path='imdb_split.hd5', 
+    sentData = Sentiment140()
+
+    (s140tr, s140te),(train_size,test_size) = batch_data.split_data(
+            DataIterator(sentData.load_data,auto_reset=True), 
+            h5_path='sentiment140_split.hd5', 
             overwrite_previous=False,
             shuffle=True)
 
-    imdb_train_batch = BatchIterator(imdbtr,
+    s140_train_batch = BatchIterator(s140tr,
             normalizer_fun=lambda x: data_utils.normalize(x, 
-                min_length=100,
-                max_length=1014, 
+                min_length=70,
+                max_length=150, 
                 truncate_left=True,
                 encoding=None,
                 reverse=True),
@@ -231,10 +233,10 @@ def word_embedding_input(embedding_type,batch_size=30,num_words=99):
             batch_size=batch_size,
             auto_reset=True)
 
-    imdb_test_batch = BatchIterator(imdbte,
+    s140_test_batch = BatchIterator(s140te,
             normalizer_fun=lambda x: data_utils.normalize(x, 
-                min_length=100,
-                max_length=1014, 
+                min_length=70,
+                max_length=150, 
                 truncate_left=True,
                 encoding=None,
                 reverse=True),
@@ -247,23 +249,24 @@ def word_embedding_input(embedding_type,batch_size=30,num_words=99):
             auto_reset=True)
 
 
-    return (imdb_train_batch, imdb_test_batch),(train_size, test_size)
+    return (s140_train_batch, s140_test_batch),(train_size, test_size)
 
 def char_input(batch_size=30,chars_reversed=True):
 
-    #(imdbtr, imdbte),(train_size, test_size) = batch_data.split_and_batch(
+    #(s140tr, s140te),(train_size, test_size) = batch_data.split_and_batch(
     #    data_loader=None,doclength=None,batch_size=batch_size,h5_path='imdb_split.hd5')
-    
-    (imdbtr, imdbte),(train_size,test_size) = batch_data.split_data(
-            DataIterator(imdb.load_data,auto_reset=True), 
-            h5_path='imdb_split.hd5', 
+    sentData = Sentiment140()
+
+    (s140tr, s140te),(train_size,test_size) = batch_data.split_data(
+            DataIterator(sentData.load_data,auto_reset=True), 
+            h5_path='sentiment140_split.hd5', 
             overwrite_previous=False,
             shuffle=True)
 
-    imdb_train_batch = BatchIterator(imdbtr,
+    s140_train_batch = BatchIterator(s140tr,
             normalizer_fun=lambda x: data_utils.normalize(x, 
-                min_length=100,
-                max_length=1014, 
+                min_length=70,
+                max_length=150, 
                 encoding=None,
                 reverse= not chars_reversed),
 
@@ -273,10 +276,10 @@ def char_input(batch_size=30,chars_reversed=True):
             batch_size=batch_size,
             auto_reset=True)
 
-    imdb_test_batch = BatchIterator(imdbte,
+    s140_test_batch = BatchIterator(s140te,
             normalizer_fun=lambda x: data_utils.normalize(x, 
-                min_length=100,
-                max_length=1014, 
+                min_length=70,
+                max_length=150, 
                 encoding=None,
                 reverse= not chars_reversed),
 
@@ -286,12 +289,12 @@ def char_input(batch_size=30,chars_reversed=True):
             batch_size=batch_size,
             auto_reset=True)
 
-    return (imdb_train_batch, imdb_test_batch),(train_size, test_size)
+    return (s140_train_batch, s140_test_batch),(train_size, test_size)
 
 def char_cnn():
 
     num_features = 67
-    num_chars = 1014
+    num_chars = 150
 
     print('Build char cnn model...')
   
@@ -300,27 +303,25 @@ def char_cnn():
     
     model = Sequential()
 
-    #Input = #alphabet x 1014
+    #Input = #alphabet x 150
     model.add(Convolution2D(256,num_features,7,input_shape=(1,num_features,num_chars)))
     model.add(MaxPooling2D(pool_size=(1,3)))
 
-    #Input = 336 x 256
+    #Input = 48 x 256
     model.add(Convolution2D(256,1,7))
-    model.add(MaxPooling2D(pool_size=(1,3)))
-
-    #Input = 110 x 256
+    
+    #Input = 42 x 256
     model.add(Convolution2D(256,1,3))
 
-    #Input = 108 x 256
+    #Input = 40 x 256
     model.add(Convolution2D(256,1,3))
 
-    #Input = 106 x 256
+    #Input = 38 x 256
     model.add(Convolution2D(256,1,3))
 
-    #Input = 104 X 256
+    #Input = 36 X 256
     model.add(Convolution2D(256,1,3))
-    model.add(MaxPooling2D(pool_size=(1,3)))
-
+    
     #34 x 256
     model.add(Flatten())
 
@@ -360,31 +361,30 @@ def word_cnn(embedding_type,num_words):
     
     model = Sequential()
 
-    #Input = #alphabet=(200 or 300) x 99
+    #Input = #alphabet=#alphabet(200 or 300) x 50
     model.add(Convolution2D(256,num_words,7,input_shape=(1,num_words,num_features)))
-    model.add(MaxPooling2D(pool_size=(1,3)))
-
-    #Input = 31 x 256
+    
+    #Input = 44 x 256
     model.add(Convolution2D(256,1,7))
     
-    #Input = 25 x 256
+    #Input = 38 x 256
     model.add(Convolution2D(256,1,3))
 
-    #Input = 23 x 256
+    #Input = 36 x 256
     model.add(Convolution2D(256,1,3))
 
-    #Input = 21 x 256
+    #Input = 34 x 256
     model.add(Convolution2D(256,1,3))
 
-    #Input = 19 X 256
+    #Input = 32 X 256
     model.add(Convolution2D(256,1,3))
     
-    #17 x 256
+    #30 x 256
     model.add(Flatten())
 
     #Fully Connected Layers
 
-    #Input is 17*256=4352 Output is 1024 
+    #Input is 30*256=7680 Output is 1024 
     model.add(Dense(fully_connected[0]))
     model.add(Dropout(0.5))
     model.add(Activation('relu'))
@@ -428,7 +428,7 @@ def word_lstm(embedding_type, num_words):
 def char_lstm():
 
     num_features = 67
-    num_chars = 1014
+    num_chars = 150
 
     print('Build char lstm model...')
     
@@ -446,3 +446,32 @@ def char_lstm():
 
 if __name__=="__main__":
     run_tests()
+
+    '''batch_size = 128
+
+    sentData = Sentiment140()
+
+    (s140tr, s140te),(tr,te) = batch_data.split_data(DataIterator(sentData.load_data),
+        h5_path='sentiment140_split.hd5',
+        overwrite_previous=False,
+        shuffle=True)    
+
+    s140_train_batch = BatchIterator(s140tr,
+            normalizer_fun=lambda x: data_utils.normalize(x, 
+            min_length=70,
+            max_length=150, 
+            truncate_left=True,
+            encoding=None,
+            reverse=True),
+
+            transformer_fun=lambda x: data_utils.to_one_hot(x),
+            
+            flatten=False, 
+            batch_size=batch_size)
+
+    text,label = s140_train_batch.next()
+    print("Text shape", text.shape)
+    print("Sent shape", label.shape)
+
+    print(''.join(data_utils.from_one_hot(text[0])))
+    '''
