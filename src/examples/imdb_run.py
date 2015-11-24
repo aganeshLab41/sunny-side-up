@@ -427,7 +427,7 @@ def word_lstm(embedding_type, num_words):
 
 def char_lstm():
 
-    num_features = 67
+    num_features = 20
     num_chars = 1014
 
     print('Build char lstm model...')
@@ -440,7 +440,7 @@ def char_lstm():
     model.add(Dense(1))
     model.add(Activation('sigmoid'))
 
-    model.compile(loss='binary_crossentropy', optimizer='adam', class_mode="binary")
+    model.compile(loss='binary_crossentropy', optimizer='rmsprop', class_mode="binary")
 
     return model
 
