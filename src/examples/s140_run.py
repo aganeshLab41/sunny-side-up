@@ -210,10 +210,8 @@ def word_embedding_input(embedding_type,batch_size=30,num_words=99):
         normalizer_fun=lambda x: data_utils.normalize(x,encoding=None,reverse=False),
         flatten=False) ''' 
 
-    sentData = Sentiment140()
-
     (s140tr, s140te),(train_size,test_size) = batch_data.split_data(
-            DataIterator(sentData.load_data,auto_reset=True), 
+            None, 
             h5_path='sentiment140_split.hd5', 
             overwrite_previous=False,
             shuffle=True)
@@ -258,7 +256,7 @@ def char_input(batch_size=30,chars_reversed=True):
     sentData = Sentiment140()
 
     (s140tr, s140te),(train_size,test_size) = batch_data.split_data(
-            DataIterator(sentData.load_data,auto_reset=True), 
+            None, 
             h5_path='sentiment140_split.hd5', 
             overwrite_previous=False,
             shuffle=True)
@@ -270,7 +268,7 @@ def char_input(batch_size=30,chars_reversed=True):
                 encoding=None,
                 reverse= not chars_reversed),
 
-            transformer_fun=lambda x: data_utils.to_one_hot(x),
+            transformer_fun=data_utils.to_one_hot,
 
             flatten=False, 
             batch_size=batch_size,
@@ -283,7 +281,7 @@ def char_input(batch_size=30,chars_reversed=True):
                 encoding=None,
                 reverse= not chars_reversed),
 
-            transformer_fun=lambda x: data_utils.to_one_hot(x),
+            transformer_fun=data_utils.to_one_hot,
 
             flatten=False, 
             batch_size=batch_size,
@@ -427,7 +425,7 @@ def word_lstm(embedding_type, num_words):
 
 def char_lstm():
 
-    num_features = 67
+    num_features = 10
     num_chars = 150
 
     print('Build char lstm model...')

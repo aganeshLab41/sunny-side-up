@@ -28,7 +28,7 @@ from keras.regularizers import l2
 from sklearn.metrics import confusion_matrix
 
 '''
-THEANO_FLAGS=mode=FAST_RUN,device=gpu0,floatX=float32 python openw_run.py
+THEANO_FLAGS=mode=FAST_RUN,device=gpu1,floatX=float32 python openw_run.py
 '''
 
 def run_tests():
@@ -211,7 +211,7 @@ def word_embedding_input(embedding_type,batch_size=30,num_words=99):
         flatten=False) ''' 
     
     (opentr, opente),(train_size,test_size) = batch_data.split_data(
-            None,auto_reset=True), 
+            None, 
             h5_path='open_weiboscope.hd5', 
             overwrite_previous=False,
             shuffle=True)
@@ -257,7 +257,7 @@ def char_input(batch_size=30,chars_reversed=True):
     
 
     (opentr, opente),(train_size,test_size) = batch_data.split_data(
-            None,auto_reset=True), 
+            None, 
             h5_path='open_weiboscope.hd5', 
             overwrite_previous=False,
             shuffle=True)
@@ -282,7 +282,7 @@ def char_input(batch_size=30,chars_reversed=True):
                 encoding=None,
                 reverse= not chars_reversed),
 
-            transformer_fun=lambda x: data_utils.to_one_hot(x),
+            transformer_fun=data_utils.to_one_hot,
 
             flatten=False, 
             batch_size=batch_size,
@@ -429,7 +429,7 @@ def word_lstm(embedding_type, num_words):
 
 def char_lstm():
 
-    num_features = 67
+    num_features = 10
     num_chars = 1014
 
     print('Build char lstm model...')
